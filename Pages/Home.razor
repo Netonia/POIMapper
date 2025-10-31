@@ -1,7 +1,6 @@
 ﻿@page "/"
 @using POIMapper.Models
 @using POIMapper.Services
-@using LeafletForBlazor
 @inject POIService POIService
 @inject ExportService ExportService
 @inject IJSRuntime JSRuntime
@@ -46,12 +45,7 @@
 
     <div class="center-panel">
         <h3>Interactive Map</h3>
-        <div class="map-container">
-            <Map @ref="mapRef" 
-                 width="100%" 
-                 height="100%">
-            </Map>
-        </div>
+        <div id="map" class="map-container"></div>
     </div>
 
     <div class="right-panel">
@@ -124,7 +118,7 @@
 }
 
 @code {
-    private Map? mapRef;
+    private bool mapInitialized = false;
     private List<POI> allPois = new();
     private List<POI> filteredPois = new();
     private POI? selectedPoi;
@@ -145,7 +139,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && mapRef != null)
+        if (firstRender)
         {
             await InitializeMap();
         }
@@ -153,29 +147,51 @@
 
     private async Task InitializeMap()
     {
-        if (mapRef != null)
+        try
         {
+            await JSRuntime.InvokeVoidAsync("mapHelper.initMap", "map", 48.8566, 2.3522, 6);
+            mapInitialized = true;
             await UpdateMapMarkers();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing map: {ex.Message}");
         }
     }
 
-    private Task UpdateMapMarkers()
+    private async Task UpdateMapMarkers()
     {
-        if (mapRef == null) return Task.CompletedTask;
+        if (!mapInitialized) return;
         
-        // Map initialization and marker updates would go here
-        // For now, we'll keep the map simple
-        return Task.CompletedTask;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("mapHelper.clearMarkers");
+            
+            foreach (var poi in filteredPois)
+            {
+                await JSRuntime.InvokeVoidAsync("mapHelper.addMarker", 
+                    poi.Latitude, poi.Longitude, poi.Name, poi.Description, poi.Category);
+            }
+            
+            if (filteredPois.Any())
+            {
+                await JSRuntime.InvokeVoidAsync("mapHelper.fitBounds", filteredPois);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating markers: {ex.Message}");
+        }
     }
 
-    private void RefreshPois()
+    private async void RefreshPois()
     {
         allPois = POIService.GetAll();
-        ApplyFilters();
+        await ApplyFilters();
         StateHasChanged();
     }
 
-    private void ApplyFilters()
+    private async Task ApplyFilters()
     {
         filteredPois = allPois;
         
@@ -188,6 +204,8 @@
         {
             filteredPois = filteredPois.Where(p => p.Category == selectedCategory).ToList();
         }
+        
+        await UpdateMapMarkers();
     }
 
     private void SelectPoi(POI poi)
@@ -265,7 +283,15 @@
 
     private async Task CopyToClipboard()
     {
-        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", exportResult);
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", exportResult);
+            await JSRuntime.InvokeVoidAsync("notification.show", "Copied to clipboard!", "success");
+        }
+        catch
+        {
+            await JSRuntime.InvokeVoidAsync("notification.show", "Failed to copy to clipboard", "error");
+        }
     }
 
     public void Dispose()
