@@ -1,0 +1,122 @@
+.poi-mapper-container {
+    display: grid;
+    grid-template-columns: 300px 1fr 350px;
+    gap: 1rem;
+    height: calc(100vh - 120px);
+    padding: 1rem;
+}
+
+.left-panel, .center-panel, .right-panel {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.left-panel h3, .center-panel h3, .right-panel h3 {
+    margin-top: 0;
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.search-filter {
+    margin-bottom: 1rem;
+}
+
+.poi-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.poi-item {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.poi-item:hover {
+    background-color: #f8f9fa;
+    border-color: #0d6efd;
+}
+
+.poi-item.selected {
+    background-color: #e7f3ff;
+    border-color: #0d6efd;
+}
+
+.poi-item h5 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1rem;
+}
+
+.poi-item p {
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.poi-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.map-container {
+    flex: 1;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.export-options {
+    display: flex;
+    flex-direction: column;
+}
+
+.export-result {
+    font-family: monospace;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 1200px) {
+    .poi-mapper-container {
+        grid-template-columns: 250px 1fr;
+        grid-template-rows: auto 1fr;
+    }
+
+    .right-panel {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 768px) {
+    .poi-mapper-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+    }
+    
+    .left-panel, .center-panel, .right-panel {
+        grid-column: 1;
+    }
+}
+
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1040;
+    width: 100vw;
+    height: 100vh;
+    background-color: #000;
+    opacity: 0.5;
+}
+
+.modal.show {
+    display: block;
+    z-index: 1050;
+}
