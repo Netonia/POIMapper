@@ -1,0 +1,322 @@
+﻿@page "/"
+@using POIMapper.Models
+@using POIMapper.Services
+@inject POIService POIService
+@inject ExportService ExportService
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<PageTitle>POI Mapper</PageTitle>
+
+<div class="poi-mapper-container">
+    <div class="left-panel">
+        <h3>POI List</h3>
+        
+        <div class="search-filter">
+            <input type="text" @bind="searchText" @bind:event="oninput" placeholder="Search POIs..." class="form-control mb-2" />
+            
+            <select @bind="selectedCategory" class="form-select mb-2">
+                <option value="All">All Categories</option>
+                @foreach (var category in POICategory.Categories)
+                {
+                    <option value="@category">@category</option>
+                }
+            </select>
+            
+            <button class="btn btn-primary w-100 mb-3" @onclick="ShowAddPoiForm">+ Add POI</button>
+        </div>
+
+        <div class="poi-list">
+            @foreach (var poi in filteredPois)
+            {
+                <div class="poi-item @(selectedPoi?.Id == poi.Id ? "selected" : "")" @onclick="() => SelectPoi(poi)">
+                    <h5>@poi.Name</h5>
+                    <small class="text-muted">@poi.Category</small>
+                    <p class="mb-1">@poi.Description</p>
+                    <small class="text-muted">@poi.Latitude.ToString("F4"), @poi.Longitude.ToString("F4")</small>
+                    <div class="poi-actions">
+                        <button class="btn btn-sm btn-outline-primary" @onclick:stopPropagation="true" @onclick="() => EditPoi(poi)">Edit</button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick:stopPropagation="true" @onclick="() => DeletePoi(poi)">Delete</button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="center-panel">
+        <h3>Interactive Map</h3>
+        <div id="map" class="map-container"></div>
+    </div>
+
+    <div class="right-panel">
+        <h3>Export</h3>
+        
+        <div class="export-options">
+            <button class="btn btn-outline-secondary w-100 mb-2" @onclick="ExportAsJson">Export as JSON</button>
+            <button class="btn btn-outline-secondary w-100 mb-2" @onclick="ExportAsCsv">Export as CSV</button>
+        </div>
+
+        <h5 class="mt-3">Liquid Template</h5>
+        <textarea @bind="liquidTemplate" class="form-control mb-2" rows="5" placeholder="e.g., {{ name }} - {{ category }} at {{ lat }}, {{ lon }}"></textarea>
+        <button class="btn btn-outline-primary w-100 mb-2" @onclick="ExportWithTemplate">Generate with Template</button>
+
+        @if (!string.IsNullOrEmpty(exportResult))
+        {
+            <h5 class="mt-3">Export Result</h5>
+            <textarea class="form-control export-result" rows="10" readonly>@exportResult</textarea>
+            <button class="btn btn-outline-success w-100 mt-2" @onclick="CopyToClipboard">Copy to Clipboard</button>
+        }
+    </div>
+</div>
+
+@if (showPoiForm)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(editingPoi == null ? "Add POI" : "Edit POI")</h5>
+                    <button type="button" class="btn-close" @onclick="ClosePoiForm"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" @bind="currentPoi.Name" required maxlength="100" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" @bind="currentPoi.Description" rows="3" maxlength="500"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <select class="form-select" @bind="currentPoi.Category">
+                            @foreach (var category in POICategory.Categories)
+                            {
+                                <option value="@category">@category</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Latitude <span class="text-danger">*</span></label>
+                            <input type="number" step="0.0001" min="-90" max="90" class="form-control" @bind="currentPoi.Latitude" required />
+                            <small class="text-muted">Range: -90 to 90</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Longitude <span class="text-danger">*</span></label>
+                            <input type="number" step="0.0001" min="-180" max="180" class="form-control" @bind="currentPoi.Longitude" required />
+                            <small class="text-muted">Range: -180 to 180</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="ClosePoiForm">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SavePoi">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool mapInitialized = false;
+    private List<POI> allPois = new();
+    private List<POI> filteredPois = new();
+    private POI? selectedPoi;
+    private POI? editingPoi;
+    private POI currentPoi = new();
+    private bool showPoiForm = false;
+    private string searchText = string.Empty;
+    private string selectedCategory = "All";
+    private string liquidTemplate = "{{ name }} - {{ category }} - {{ lat }}, {{ lon }}";
+    private string exportResult = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await POIService.InitializeAsync();
+        POIService.OnChange += RefreshPois;
+        RefreshPois();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitializeMap();
+        }
+    }
+
+    private async Task InitializeMap()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("mapHelper.initMap", "map", 48.8566, 2.3522, 6);
+            mapInitialized = true;
+            await UpdateMapMarkers();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing map: {ex.Message}");
+        }
+    }
+
+    private async Task UpdateMapMarkers()
+    {
+        if (!mapInitialized) return;
+        
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("mapHelper.clearMarkers");
+            
+            foreach (var poi in filteredPois)
+            {
+                await JSRuntime.InvokeVoidAsync("mapHelper.addMarker", 
+                    poi.Latitude, poi.Longitude, poi.Name, poi.Description, poi.Category);
+            }
+            
+            if (filteredPois.Any())
+            {
+                await JSRuntime.InvokeVoidAsync("mapHelper.fitBounds", filteredPois);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating markers: {ex.Message}");
+        }
+    }
+
+    private async void RefreshPois()
+    {
+        allPois = POIService.GetAll();
+        await ApplyFilters();
+        StateHasChanged();
+    }
+
+    private async Task ApplyFilters()
+    {
+        filteredPois = allPois;
+        
+        if (!string.IsNullOrEmpty(searchText))
+        {
+            filteredPois = POIService.SearchByText(searchText);
+        }
+        
+        if (selectedCategory != "All")
+        {
+            filteredPois = filteredPois.Where(p => p.Category == selectedCategory).ToList();
+        }
+        
+        await UpdateMapMarkers();
+    }
+
+    private void SelectPoi(POI poi)
+    {
+        selectedPoi = poi;
+    }
+
+    private void ShowAddPoiForm()
+    {
+        editingPoi = null;
+        currentPoi = new POI { Latitude = 48.8566, Longitude = 2.3522 };
+        showPoiForm = true;
+    }
+
+    private void EditPoi(POI poi)
+    {
+        editingPoi = poi;
+        currentPoi = new POI
+        {
+            Id = poi.Id,
+            Name = poi.Name,
+            Description = poi.Description,
+            Category = poi.Category,
+            Latitude = poi.Latitude,
+            Longitude = poi.Longitude,
+            CreatedAt = poi.CreatedAt
+        };
+        showPoiForm = true;
+    }
+
+    private async Task SavePoi()
+    {
+        // Validate coordinates
+        if (currentPoi.Latitude < -90 || currentPoi.Latitude > 90)
+        {
+            await JSRuntime.InvokeVoidAsync("notification.show", "Latitude must be between -90 and 90", "error");
+            return;
+        }
+        
+        if (currentPoi.Longitude < -180 || currentPoi.Longitude > 180)
+        {
+            await JSRuntime.InvokeVoidAsync("notification.show", "Longitude must be between -180 and 180", "error");
+            return;
+        }
+        
+        if (string.IsNullOrWhiteSpace(currentPoi.Name))
+        {
+            await JSRuntime.InvokeVoidAsync("notification.show", "POI name is required", "error");
+            return;
+        }
+        
+        if (editingPoi == null)
+        {
+            await POIService.AddAsync(currentPoi);
+        }
+        else
+        {
+            await POIService.UpdateAsync(currentPoi);
+        }
+        ClosePoiForm();
+        await UpdateMapMarkers();
+    }
+
+    private async Task DeletePoi(POI poi)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Delete POI '{poi.Name}'?"))
+        {
+            await POIService.DeleteAsync(poi.Id);
+            await UpdateMapMarkers();
+        }
+    }
+
+    private void ClosePoiForm()
+    {
+        showPoiForm = false;
+        editingPoi = null;
+        currentPoi = new();
+    }
+
+    private void ExportAsJson()
+    {
+        exportResult = ExportService.ExportAsJson(filteredPois);
+    }
+
+    private void ExportAsCsv()
+    {
+        exportResult = ExportService.ExportAsCsv(filteredPois);
+    }
+
+    private async Task ExportWithTemplate()
+    {
+        exportResult = await ExportService.ExportWithTemplate(filteredPois, liquidTemplate);
+    }
+
+    private async Task CopyToClipboard()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", exportResult);
+            await JSRuntime.InvokeVoidAsync("notification.show", "Copied to clipboard!", "success");
+        }
+        catch
+        {
+            await JSRuntime.InvokeVoidAsync("notification.show", "Failed to copy to clipboard", "error");
+        }
+    }
+
+    public void Dispose()
+    {
+        POIService.OnChange -= RefreshPois;
+    }
+}
