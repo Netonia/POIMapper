@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "POIMapper",
   "resources": {
-    "hash": "sha256-x6mka/gRUToYZxH1RoicxNhlzeyQp9HSD/W6Pek3fD0=",
+    "hash": "sha256-arjm0+3e2u8V9uV3K9ajoyKgA6tLScPAtwhz1sUdfP4=",
     "fingerprinting": {
       "Fluid.1eepegtfhp.wasm": "Fluid.wasm",
       "LeafletForBlazor.crpylr9a06.wasm": "LeafletForBlazor.wasm",
@@ -70,7 +70,7 @@
       "System.Xml.XDocument.ocxzop4g63.wasm": "System.Xml.XDocument.wasm",
       "System.8rv0tdtrxz.wasm": "System.wasm",
       "System.Private.CoreLib.i4qrhuaij4.wasm": "System.Private.CoreLib.wasm",
-      "POIMapper.w4rivs501l.wasm": "POIMapper.wasm",
+      "POIMapper.onsuayvfy1.wasm": "POIMapper.wasm",
       "dotnet.js": "dotnet.js",
       "dotnet.native.l4ptthxatg.js": "dotnet.native.js",
       "dotnet.native.d2w7colv7e.wasm": "dotnet.native.wasm",
@@ -163,7 +163,7 @@
       "System.Xml.ReaderWriter.1otkvd7d8u.wasm": "sha256-z6lJ2dLqjFO8i9yDuWV50JqG5CuDqO1ssAfKN80tAic=",
       "System.Xml.XDocument.ocxzop4g63.wasm": "sha256-mO8Myb/YHsEXA9rrh5dZinveqXGkEbaG2JNi9ZpvjnY=",
       "System.8rv0tdtrxz.wasm": "sha256-xMF0eauQ5DkSzUozHLFFMQnL6DSJO09nJLtgag+Dzbw=",
-      "POIMapper.w4rivs501l.wasm": "sha256-4BiiXOeirxhIFyN796bYhepXQd9mkZC0yy9/sR5RxKA="
+      "POIMapper.onsuayvfy1.wasm": "sha256-lK6+6KJzLCJ6uOmNLj9Su+76jZTvZMR08FHvRKs3ZLE="
     }
   },
   "cacheBootResources": true,
